@@ -4,15 +4,24 @@
              xsi:schemaLocation="
         http://java.sun.com/xml/ns/persistence
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
-    <persistence-unit name="user-store" transaction-type="JTA">
-        <class>org.keycloak.quickstart.storage.user.UserEntity</class>
+    <persistence-unit name="flex-store" transaction-type="JTA">
+        <class>org.keycloak.quickstart.storage.user.entity.AfmastEntity</class>
+        <class>org.keycloak.quickstart.storage.user.entity.CfmastEntity</class>
+        <class>org.keycloak.quickstart.storage.user.entity.UserLoginEntity</class>
+
         <properties>
-            <property name="hibernate.dialect" value="io.quarkus.hibernate.orm.runtime.dialect.QuarkusH2Dialect" />
+<!--            <property name="hibernate.dialect" value="io.quarkus.hibernate.orm.runtime.dialect.QuarkusH2Dialect" />-->
+
+            <property name="hibernate.dialect" value="org.hibernate.dialect.Oracle12cDialect" />
+            <property name="hibernate.connection.driver_class" value="oracle.jdbc.OracleDriver" />
             <!-- Sets the name of the datasource to be the same as the datasource name in quarkus.properties-->
-            <property name="hibernate.connection.datasource" value="user-store" />
+            <property name="hibernate.connection.datasource" value="flex-store" />
             <property name="javax.persistence.transactionType" value="JTA" />
-            <property name="hibernate.hbm2ddl.auto" value="update" />
-            <property name="hibernate.show_sql" value="false" />
+            <property name="hibernate.show_sql" value="true" />
+            <property name="hibernate.connection.url" value="jdbc:oracle:thin:@10.199.200.5:1521:KSSDBUAT19C" />
+            <property name="hibernate.connection.username" value="host"/>
+            <property name="hibernate.connection.password" value="host"/>
+            <property name="hibernate.connection.pool_size" value="10"/>
         </properties>
     </persistence-unit>
 </persistence>

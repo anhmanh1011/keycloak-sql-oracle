@@ -28,7 +28,7 @@ import javax.naming.InitialContext;
  * @version $Revision: 1 $
  */
 public class EjbExampleUserStorageProviderFactory implements UserStorageProviderFactory<EjbExampleUserStorageProvider> {
-    public static final String PROVIDER_ID = "example-user-storage-jpa";
+    public static final String PROVIDER_ID = "flex-storage-jpa";
 
     private static final Logger logger = Logger.getLogger(EjbExampleUserStorageProviderFactory.class);
 
@@ -36,7 +36,7 @@ public class EjbExampleUserStorageProviderFactory implements UserStorageProvider
     public EjbExampleUserStorageProvider create(KeycloakSession session, ComponentModel model) {
         try {
             InitialContext ctx = new InitialContext();
-            EjbExampleUserStorageProvider provider = (EjbExampleUserStorageProvider)ctx.lookup("java:global/user-storage-jpa-example/" + EjbExampleUserStorageProvider.class.getSimpleName());
+            EjbExampleUserStorageProvider provider = (EjbExampleUserStorageProvider)ctx.lookup("java:global/flex-storage-jpa/" + EjbExampleUserStorageProvider.class.getSimpleName());
             provider.setModel(model);
             provider.setSession(session);
             return provider;

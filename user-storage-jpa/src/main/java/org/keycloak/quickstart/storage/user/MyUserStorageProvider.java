@@ -23,14 +23,12 @@ import org.keycloak.credential.CredentialInput;
 import org.keycloak.credential.CredentialInputUpdater;
 import org.keycloak.credential.CredentialInputValidator;
 import org.keycloak.credential.CredentialModel;
-import org.keycloak.models.GroupModel;
-import org.keycloak.models.KeycloakSession;
-import org.keycloak.models.RealmModel;
-import org.keycloak.models.RoleModel;
-import org.keycloak.models.UserCredentialModel;
-import org.keycloak.models.UserModel;
+import org.keycloak.models.*;
 import org.keycloak.models.cache.CachedUserModel;
-import org.keycloak.models.cache.OnUserCache;
+import org.keycloak.models.credential.PasswordCredentialModel;
+import org.keycloak.quickstart.storage.user.dao.UserDAO;
+import org.keycloak.quickstart.storage.user.model.UserDto;
+import org.keycloak.quickstart.storage.user.representations.UserRepresentation;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.UserStorageProvider;
 import org.keycloak.storage.user.UserLookupProvider;
@@ -38,14 +36,10 @@ import org.keycloak.storage.user.UserQueryProvider;
 import org.keycloak.storage.user.UserRegistrationProvider;
 
 import javax.persistence.EntityManager;
+import javax.persistence.Query;
 import javax.persistence.TypedQuery;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
@@ -56,242 +50,207 @@ public class MyUserStorageProvider implements UserStorageProvider,
         UserRegistrationProvider,
         UserQueryProvider,
         CredentialInputUpdater,
-        CredentialInputValidator,
-        OnUserCache
-{
-    private static final Logger logger = Logger.getLogger(MyUserStorageProvider.class);
-    public static final String PASSWORD_CACHE_KEY = UserAdapter.class.getName() + ".password";
-
-    protected EntityManager em;
+        CredentialInputValidator {
+    private static final Logger log = Logger.getLogger(MyUserStorageProvider.class);
 
     protected ComponentModel model;
     protected KeycloakSession session;
+    private final UserDAO userDAO;
+
+    protected EntityManager em;
 
     MyUserStorageProvider(KeycloakSession session, ComponentModel model) {
         this.session = session;
         this.model = model;
-        em = session.getProvider(JpaConnectionProvider.class, "user-store").getEntityManager();
+        em = session.getProvider(JpaConnectionProvider.class, "flex-store").getEntityManager();
+        userDAO = new UserDAO(em);
     }
 
-    @Override
-    public void preRemove(RealmModel realm) {
 
-    }
-
-    @Override
-    public void preRemove(RealmModel realm, GroupModel group) {
-
-    }
-
-    @Override
-    public void preRemove(RealmModel realm, RoleModel role) {
-
-    }
 
     @Override
     public void close() {
+        userDAO.close();
     }
 
     @Override
-    public UserModel getUserById(String id, RealmModel realm) {
-        logger.info("getUserById: " + id);
-        String persistenceId = StorageId.externalId(id);
-        UserEntity entity = em.find(UserEntity.class, persistenceId);
-        if (entity == null) {
-            logger.info("could not find user by id: " + id);
-            return null;
+    public boolean isConfiguredFor(RealmModel realm, UserModel user, String credentialType) {
+        log.info("isConfiguredFor(" + realm + ", " + user + ", " + credentialType + ")");
+        return supportsCredentialType(credentialType);
+    }
+
+    @Override
+    public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
+        if (!supportsCredentialType(input.getType()) || !(input instanceof UserCredentialModel)) {
+            return false;
         }
-        return new UserAdapter(session, realm, model, entity);
-    }
-
-    @Override
-    public UserModel getUserByUsername(String username, RealmModel realm) {
-        logger.info("getUserByUsername: " + username);
-        TypedQuery<UserEntity> query = em.createNamedQuery("getUserByUsername", UserEntity.class);
-        query.setParameter("username", username);
-        List<UserEntity> result = query.getResultList();
-        if (result.isEmpty()) {
-            logger.info("could not find username: " + username);
-            return null;
-        }
-
-        return new UserAdapter(session, realm, model, result.get(0));
-    }
-
-    @Override
-    public UserModel getUserByEmail(String email, RealmModel realm) {
-        TypedQuery<UserEntity> query = em.createNamedQuery("getUserByEmail", UserEntity.class);
-        query.setParameter("email", email);
-        List<UserEntity> result = query.getResultList();
-        if (result.isEmpty()) return null;
-        return new UserAdapter(session, realm, model, result.get(0));
-    }
-
-    @Override
-    public UserModel addUser(RealmModel realm, String username) {
-        UserEntity entity = new UserEntity();
-        entity.setId(UUID.randomUUID().toString());
-        entity.setUsername(username);
-        em.persist(entity);
-        logger.info("added user: " + username);
-        return new UserAdapter(session, realm, model, entity);
-    }
-
-    @Override
-    public boolean removeUser(RealmModel realm, UserModel user) {
-        String persistenceId = StorageId.externalId(user.getId());
-        UserEntity entity = em.find(UserEntity.class, persistenceId);
-        if (entity == null) return false;
-        em.remove(entity);
-        return true;
-    }
-
-    @Override
-    public void onCache(RealmModel realm, CachedUserModel user, UserModel delegate) {
-        String password = ((UserAdapter)delegate).getPassword();
-        if (password != null) {
-            user.getCachedWith().put(PASSWORD_CACHE_KEY, password);
-        }
+        UserCredentialModel cred = (UserCredentialModel) input;
+        return userDAO.validateCredentials(user.getUsername(), cred.getChallengeResponse());
     }
 
     @Override
     public boolean supportsCredentialType(String credentialType) {
-        return CredentialModel.PASSWORD.equals(credentialType);
+        log.info("supportsCredentialType(" + credentialType + ")");
+        return PasswordCredentialModel.TYPE.equals(credentialType);
     }
 
     @Override
-    public boolean updateCredential(RealmModel realm, UserModel user, CredentialInput input) {
-        if (!supportsCredentialType(input.getType()) || !(input instanceof UserCredentialModel)) return false;
-        UserCredentialModel cred = (UserCredentialModel)input;
-        UserAdapter adapter = getUserAdapter(user);
-        adapter.setPassword(cred.getValue());
-
-        return true;
-    }
-
-    public UserAdapter getUserAdapter(UserModel user) {
-        UserAdapter adapter = null;
-        if (user instanceof CachedUserModel) {
-            adapter = (UserAdapter)((CachedUserModel)user).getDelegateForUpdate();
-        } else {
-            adapter = (UserAdapter)user;
+    public boolean updateCredential(RealmModel realm, UserModel userModel, CredentialInput input) {
+        log.info("updateCredential: " + userModel.getUsername());
+        if (!supportsCredentialType(input.getType()) || !(input instanceof UserCredentialModel)) {
+            return false;
         }
-        return adapter;
+        UserCredentialModel cred = (UserCredentialModel) input;
+        try {
+            return userDAO.updatePassword(userModel.getUsername(), cred.getChallengeResponse());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
     public void disableCredentialType(RealmModel realm, UserModel user, String credentialType) {
-        if (!supportsCredentialType(credentialType)) return;
-
-        getUserAdapter(user).setPassword(null);
+        log.info("disableCredentialType(" + realm + ", " + user + ", " + credentialType + ")");
 
     }
 
     @Override
     public Set<String> getDisableableCredentialTypes(RealmModel realm, UserModel user) {
-        if (getUserAdapter(user).getPassword() != null) {
-            Set<String> set = new HashSet<>();
-            set.add(CredentialModel.PASSWORD);
-            return set;
-        } else {
-            return Collections.emptySet();
-        }
+        return Collections.emptySet();
     }
 
-    @Override
-    public boolean isConfiguredFor(RealmModel realm, UserModel user, String credentialType) {
-        return supportsCredentialType(credentialType) && getPassword(user) != null;
-    }
-
-    @Override
-    public boolean isValid(RealmModel realm, UserModel user, CredentialInput input) {
-        if (!supportsCredentialType(input.getType()) || !(input instanceof UserCredentialModel)) return false;
-        UserCredentialModel cred = (UserCredentialModel)input;
-        String password = getPassword(user);
-        return password != null && password.equals(cred.getValue());
-    }
-
-    public String getPassword(UserModel user) {
-        String password = null;
+    public UserRepresentation getUserRepresentation(UserModel user) {
+        UserRepresentation userRepresentation = null;
         if (user instanceof CachedUserModel) {
-            password = (String)((CachedUserModel)user).getCachedWith().get(PASSWORD_CACHE_KEY);
-        } else if (user instanceof UserAdapter) {
-            password = ((UserAdapter)user).getPassword();
+            userRepresentation = (UserRepresentation) ((CachedUserModel) user).getDelegateForUpdate();
+        } else {
+            userRepresentation = (UserRepresentation) user;
         }
-        return password;
+        return userRepresentation;
+    }
+
+    public UserRepresentation getUserRepresentation(UserDto user, RealmModel realm) {
+        return new UserRepresentation(session, realm, model, user, userDAO);
     }
 
     @Override
     public int getUsersCount(RealmModel realm) {
-        Object count = em.createNamedQuery("getUserCount")
-                .getSingleResult();
-        return ((Number)count).intValue();
+        log.info("getUsersCount(" + realm + ")");
+        return (int) userDAO.size();
     }
 
     @Override
     public List<UserModel> getUsers(RealmModel realm) {
-        return getUsers(realm, -1, -1);
+        log.info("getUsers(" + realm + ")");
+        return userDAO.findAll()
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<UserModel> getUsers(RealmModel realm, int firstResult, int maxResults) {
-
-        TypedQuery<UserEntity> query = em.createNamedQuery("getAllUsers", UserEntity.class);
-        if (firstResult != -1) {
-            query.setFirstResult(firstResult);
-        }
-        if (maxResults != -1) {
-            query.setMaxResults(maxResults);
-        }
-        List<UserEntity> results = query.getResultList();
-        List<UserModel> users = new LinkedList<>();
-        for (UserEntity entity : results) users.add(new UserAdapter(session, realm, model, entity));
-        return users;
+        log.info("getUsers(RealmModel realm, int firstResult, int maxResults)");
+        return userDAO.findAll(firstResult, maxResults)
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<UserModel> searchForUser(String search, RealmModel realm) {
-        return searchForUser(search, realm, -1, -1);
+        log.info("searchForUser(String search, RealmModel realm)");
+        return userDAO.searchForUserByUsernameOrEmail(search)
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<UserModel> searchForUser(String search, RealmModel realm, int firstResult, int maxResults) {
-        TypedQuery<UserEntity> query = em.createNamedQuery("searchForUser", UserEntity.class);
-        query.setParameter("search", "%" + search.toLowerCase() + "%");
-        if (firstResult != -1) {
-            query.setFirstResult(firstResult);
-        }
-        if (maxResults != -1) {
-            query.setMaxResults(maxResults);
-        }
-        List<UserEntity> results = query.getResultList();
-        List<UserModel> users = new LinkedList<>();
-        for (UserEntity entity : results) users.add(new UserAdapter(session, realm, model, entity));
-        return users;
+        log.info("searchForUser(String search, RealmModel realm, int firstResult, int maxResults)");
+        return userDAO.searchForUserByUsernameOrEmail(search, firstResult, maxResults)
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm) {
-        return Collections.EMPTY_LIST;
+        log.info("searchForUser(params: " + params + ", realm: " + realm + ")");
+        // TODO Will probably never implement; Only used by REST API
+
+        return userDAO.searchForUserByParam(params, null, null)
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm, int firstResult, int maxResults) {
-        return Collections.EMPTY_LIST;
+    public List<UserModel> searchForUser(Map<String, String> params, RealmModel realm, int firstResult,
+                                         int maxResults) {
+        return userDAO.searchForUserByParam(params, firstResult, maxResults)
+                .stream()
+                .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group, int firstResult, int maxResults) {
-        return Collections.EMPTY_LIST;
+        // TODO Will probably never implement
+        return new ArrayList<>();
     }
 
     @Override
     public List<UserModel> getGroupMembers(RealmModel realm, GroupModel group) {
-        return Collections.EMPTY_LIST;
+        // TODO Will probably never implement
+        return new ArrayList<>();
     }
 
     @Override
     public List<UserModel> searchForUserByUserAttribute(String attrName, String attrValue, RealmModel realm) {
-        return Collections.EMPTY_LIST;
+        // TODO Will probably never implement
+        if (attrName.equals("phone")) {
+            Map<String, String> map = new HashMap<>();
+            map.put("phone", attrValue);
+            return userDAO.searchForUserByParam(map, null, null)
+                    .stream()
+                    .map(user -> new UserRepresentation(session, realm, model, user, userDAO))
+                    .collect(Collectors.toList());
+        }
+        return new ArrayList<>();
+    }
+
+    @Override
+    public UserModel getUserById(String keycloakId, RealmModel realm) {
+        // keycloakId := keycloak internal id; needs to be mapped to external id
+        log.info("getUserById(String keycloakId, RealmModel realm)");
+        String id = StorageId.externalId(keycloakId);
+        return new UserRepresentation(session, realm, model, userDAO.getUserById(id), userDAO);
+    }
+
+    @Override
+    public UserModel getUserByUsername(String username, RealmModel realm) {
+        log.info("getUserByUsername(String username, RealmModel realm)");
+        Optional<UserDto> optionalUser = userDAO.getUserByUsername(username);
+        return optionalUser.map(user -> getUserRepresentation(user, realm)).orElse(null);
+    }
+
+    @Override
+    public UserModel getUserByEmail(String email, RealmModel realm) {
+        log.info("getUserByEmail(String email, RealmModel realm)");
+        Optional<UserDto> optionalUser = userDAO.getUserByEmail(email);
+        return optionalUser.map(user -> getUserRepresentation(user, realm)).orElse(null);
+    }
+
+    @Override
+    public UserModel addUser(RealmModel realm, String username) {
+        return null;
+    }
+
+    @Override
+    public boolean removeUser(RealmModel realm, UserModel user) {
+        return false;
     }
 }

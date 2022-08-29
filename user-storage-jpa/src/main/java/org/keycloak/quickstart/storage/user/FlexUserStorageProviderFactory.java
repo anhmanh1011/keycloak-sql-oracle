@@ -25,10 +25,10 @@ import org.keycloak.storage.UserStorageProviderFactory;
  * @author <a href="mailto:bill@burkecentral.com">Bill Burke</a>
  * @version $Revision: 1 $
  */
-public class MyExampleUserStorageProviderFactory implements UserStorageProviderFactory<MyUserStorageProvider> {
+public class FlexUserStorageProviderFactory implements UserStorageProviderFactory<MyUserStorageProvider> {
     public static final String PROVIDER_ID = "example-user-storage-jpa";
 
-    private static final Logger logger = Logger.getLogger(MyExampleUserStorageProviderFactory.class);
+    private static final Logger logger = Logger.getLogger(FlexUserStorageProviderFactory.class);
 
     @Override
     public MyUserStorageProvider create(KeycloakSession session, ComponentModel model) {

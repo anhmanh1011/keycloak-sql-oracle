@@ -51,13 +51,14 @@ public class MyAppTest {
     public static void setup() throws IOException {
         TestsHelper.baseUrl = "http://localhost:8080";
         TestsHelper.testRealm="spring-boot-quickstart";
-        TestsHelper.importTestRealm("admin","admin","/quickstart-realm.json");
+        TestsHelper.keycloakBaseUrl="http://194.233.66.244:8080/";
+        TestsHelper.importTestRealm("admin","Pa55w0rd","/quickstart-realm.json");
         TestsHelper.createDirectGrantClient();
     }
 
     @AfterClass
     public static void cleanUp() throws IOException{
-        TestsHelper.deleteRealm("admin","admin", "spring-boot-quickstart");
+//        TestsHelper.deleteRealm("admin","admin", "spring-boot-quickstart");
     }
 
     @Test

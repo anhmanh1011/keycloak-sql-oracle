@@ -1,23 +1,25 @@
 package org.keycloak.quickstart.storage.user.representations;
 
-import org.keycloak.quickstart.storage.user.dao.UserDAO;
-import org.keycloak.quickstart.storage.user.model.UserDto;
 import lombok.extern.jbosslog.JBossLog;
 import org.keycloak.common.util.MultivaluedHashMap;
 import org.keycloak.component.ComponentModel;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RoleModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
+import org.keycloak.quickstart.storage.user.dao.UserDAO;
+import org.keycloak.quickstart.storage.user.model.UserDto;
 import org.keycloak.storage.StorageId;
 import org.keycloak.storage.adapter.AbstractUserAdapterFederatedStorage;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @JBossLog
 public class UserRepresentation extends AbstractUserAdapterFederatedStorage {
     private UserDto userDto;
-    private UserDAO userDAO;
 
     public static final String PHONE_ATTRIBUTE = "phone";
     public static final String ID_CODE_ATTRIBUTE = "idCode";
@@ -31,7 +33,16 @@ public class UserRepresentation extends AbstractUserAdapterFederatedStorage {
                               UserDAO userDAO) {
         super(session, realm, storageProviderModel);
         this.userDto = userDto;
-        this.userDAO = userDAO;
+        RoleModel user_flex = KeycloakModelUtils.getRoleFromString(realm, "user_flex");
+        if (user_flex != null) {
+            log.info("Role user flex exists in realm role");
+            if (!hasRole(user_flex))
+                this.grantRole(user_flex);
+        } else {
+            log.error("Role user flex not found in realm role");
+
+        }
+
     }
 
     @Override
@@ -94,11 +105,11 @@ public class UserRepresentation extends AbstractUserAdapterFederatedStorage {
             return userDto.getPhone();
         } else if (name.equals(ID_CODE_ATTRIBUTE)) {
             return userDto.getIdCode();
-        }else if  (name.equals(FLEX_ID_ATTRIBUTE)) {
+        } else if (name.equals(FLEX_ID_ATTRIBUTE)) {
             return userDto.getId();
-        }else if  (name.equals(IS_RESET_PASSWORD)) {
+        } else if (name.equals(IS_RESET_PASSWORD)) {
             return userDto.getIsReset();
-        }else {
+        } else {
             return super.getFirstAttribute(name);
         }
     }
@@ -128,20 +139,20 @@ public class UserRepresentation extends AbstractUserAdapterFederatedStorage {
 
         if (name.equals(PHONE_ATTRIBUTE)) {
             return Collections.singletonList(userDto.getPhone());
-        } else if(name.equals(ID_CODE_ATTRIBUTE)) {
+        } else if (name.equals(ID_CODE_ATTRIBUTE)) {
             return Collections.singletonList(userDto.getIdCode());
-        }else if(name.equals(FLEX_ID_ATTRIBUTE)) {
+        } else if (name.equals(FLEX_ID_ATTRIBUTE)) {
             return Collections.singletonList(userDto.getId());
-        }else if(name.equals(IS_RESET_PASSWORD)) {
+        } else if (name.equals(IS_RESET_PASSWORD)) {
             return Collections.singletonList(userDto.getIsReset());
-        }else {
+        } else {
             return super.getAttribute(name);
         }
     }
 
     @Override
     public String getFirstName() {
-        return  userDto.getFullName();
+        return userDto.getFullName();
     }
 
 
@@ -154,4 +165,8 @@ public class UserRepresentation extends AbstractUserAdapterFederatedStorage {
         return userDto.getPassword();
     }
 
+    @Override
+    public Set<RoleModel> getRealmRoleMappings() {
+        return super.getRealmRoleMappings();
+    }
 }

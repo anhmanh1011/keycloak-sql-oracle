@@ -26,6 +26,7 @@ import org.keycloak.credential.CredentialModel;
 import org.keycloak.models.*;
 import org.keycloak.models.cache.CachedUserModel;
 import org.keycloak.models.credential.PasswordCredentialModel;
+import org.keycloak.models.utils.KeycloakModelUtils;
 import org.keycloak.quickstart.storage.user.dao.UserDAO;
 import org.keycloak.quickstart.storage.user.model.UserDto;
 import org.keycloak.quickstart.storage.user.representations.UserRepresentation;

@@ -26,7 +26,7 @@ import org.keycloak.storage.UserStorageProviderFactory;
  * @version $Revision: 1 $
  */
 public class FlexUserStorageProviderFactory implements UserStorageProviderFactory<MyUserStorageProvider> {
-    public static final String PROVIDER_ID = "example-user-storage-jpa";
+    public static final String PROVIDER_ID = "flex-storage-jpa";
 
     private static final Logger logger = Logger.getLogger(FlexUserStorageProviderFactory.class);
 

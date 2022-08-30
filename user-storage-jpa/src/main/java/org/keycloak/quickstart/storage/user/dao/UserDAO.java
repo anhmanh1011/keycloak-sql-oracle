@@ -15,6 +15,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -209,6 +210,8 @@ public class UserDAO {
 //        log.info("validateCredentials( " + username + " pass: " + challengeResponse);
         String queryDB = "SELECT count(user) from UserLoginEntity user inner join CfmastEntity cf on user.username = cf.userName inner join AfmastEntity  af on cf.id = af.id where user.username = (SELECT c.userName FROM CfmastEntity  c where lower(c.userName) = lower(:username) or c.email = :email or c.phone = :phone ) " +
                 "and user.password = :password and user.status='A' and (cf.status = 'A' or cf.status = 'P') and af.status = 'A' ";
+        log.info("queryDB: " + queryDB);
+
         TypedQuery<Long> query = entityManager.createQuery(queryDB, Long.class);
         query.setParameter("username", username);
         query.setParameter("email", username);
@@ -218,6 +221,7 @@ public class UserDAO {
             long count = query.getSingleResult();
             return count > 0;
         } catch (NoResultException ex) {
+            log.log(Level.WARNING,ex.getMessage());
             ex.printStackTrace();
             log.info("login faild  :  " + username);
             return false;

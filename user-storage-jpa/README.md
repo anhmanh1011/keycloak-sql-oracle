@@ -54,3 +54,12 @@ More Information
 ----------------
 The User Storage SPI and how you can use it is covered in detail in our server developer guide.
 
+docker run -p 8080:8080 -d -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=password \
+-e KC_LOG_LEVEL=DEBUG \
+-e KEYCLOAK_ADMIN=admin \
+-e KEYCLOAK_ADMIN_PASSWORD=password \
+-v $(pwd)/keycloak.conf:/opt/keycloak/conf/keycloak.conf \
+-v $(pwd)/quarkus.properties:/opt/keycloak/conf/quarkus.properties \
+-v $(pwd)/user-storage-jpa-example.jar:/opt/keycloak/providers/keycloak-user-store-1.0.0.jar \
+-v $(pwd)/ojdbc10-19.13.0.0.1.jar:/opt/jboss/keycloak/modules/system/layers/base/com/oracle/jdbc/main/driver/ojdbc.jar \
+quay.io/keycloak/keycloak:19.0.1 start-dev 

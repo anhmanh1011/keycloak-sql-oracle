@@ -18,9 +18,9 @@
             <property name="hibernate.connection.datasource" value="flex-store" />
             <property name="javax.persistence.transactionType" value="JTA" />
             <property name="hibernate.show_sql" value="true" />
-            <property name="hibernate.connection.url" value="jdbc:oracle:thin:@10.199.200.5:1521:KSSDBUAT19C" />
-            <property name="hibernate.connection.username" value="host"/>
-            <property name="hibernate.connection.password" value="host"/>
+            <property name="hibernate.connection.url" value="jdbc:oracle:thin:@10.101.0.200:1521:KSSDBTEST" />
+            <property name="hibernate.connection.username" value="HOST"/>
+            <property name="hibernate.connection.password" value="HOST"/>
             <property name="hibernate.connection.pool_size" value="10"/>
         </properties>
     </persistence-unit>

@@ -69,9 +69,9 @@ public class UserDAO {
 
     public Optional<UserDto> getUserByEmail(String email) {
         log.info("getUserByEmail(email: " + email + ")");
-        TypedQuery<CfmastEntity> query = entityManager.createNamedQuery("getUserByEmail", CfmastEntity.class);
-        query.setParameter("email", email);
-        return query.getResultList().stream().map(ConvertUtils::convertCfmastToUserDto).findFirst();
+//        TypedQuery<CfmastEntity> query = entityManager.createNamedQuery("getUserByEmail", CfmastEntity.class);
+//        query.setParameter("email", email);
+        return getUserByUsername(email);
     }
 
     public List<UserDto> searchForUserByUsernameOrEmail(String searchString) {
